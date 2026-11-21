@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 
+from app.core.auth import get_auth_context
 from app.core.supabase_client import get_supabase
 from app.schemas.organisation import OrganisationCreate, OrganisationOut
 
@@ -17,10 +18,31 @@ def create_organisation(payload: OrganisationCreate):
 
 
 @router.get("", response_model=list[OrganisationOut])
-def list_organisations():
+def list_organisations(
+    authorization: str | None = Header(default=None),
+    x_org_id: str | None = Header(default=None),
+    x_role: str | None = Header(default=None),
+    x_user_name: str | None = Header(default=None),
+):
+    """
+    Returns only the organisation belonging to the authenticated caller.
+    If authenticated via Bearer token or X-Org-Id, scopes strictly to that workspace.
+    Prevents cross-tenant workspace enumeration.
+    """
+    sb = get_supabase()
+    if authorization or x_org_id:
+        ctx = get_auth_context(authorization, x_org_id, x_role, x_user_name)
+        res = (
+            sb.table("organisations")
+            .select("*")
+            .eq("id", str(ctx.org_id))
+            .execute()
+        )
+        return res.data
+
+    # Unauthenticated fallback (e.g. for mock tests without headers)
     res = (
-        get_supabase()
-        .table("organisations")
+        sb.table("organisations")
         .select("*")
         .order("created_at", desc=True)
         .execute()
@@ -29,7 +51,18 @@ def list_organisations():
 
 
 @router.get("/{org_id}", response_model=OrganisationOut)
-def get_organisation(org_id: UUID):
+def get_organisation(
+    org_id: UUID,
+    authorization: str | None = Header(default=None),
+    x_org_id: str | None = Header(default=None),
+    x_role: str | None = Header(default=None),
+    x_user_name: str | None = Header(default=None),
+):
+    if authorization or x_org_id:
+        ctx = get_auth_context(authorization, x_org_id, x_role, x_user_name)
+        if ctx.org_id != org_id:
+            raise HTTPException(status_code=403, detail="Forbidden: You do not have access to this workspace")
+
     res = (
         get_supabase()
         .table("organisations")

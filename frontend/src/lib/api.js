@@ -6,7 +6,7 @@ const DEMO_KEY = "caraxes_demo_key";
 // TEMPORARY identity until real login: the chosen organisation and role live here.
 export const getOrgId = () => localStorage.getItem(ORG_KEY) || "";
 export const setOrgId = (id) => localStorage.setItem(ORG_KEY, id);
-export const getRole = () => "admin";
+export const getRole = () => localStorage.getItem(ROLE_KEY) || "admin";
 export const setRole = (role) => localStorage.setItem(ROLE_KEY, role || "admin");
 const DEMO_NAMES = { creator: "Charlie Rivera", reviewer: "Aria Chen", admin: "Elena Park" };
 export async function api(path, options = {}) {

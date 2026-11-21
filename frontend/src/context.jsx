@@ -9,6 +9,9 @@ export function AppProvider({ children }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isPublicRoute =
+    pathname === "/" ||
+    pathname === "/welcome" ||
+    pathname === "/tour" ||
     pathname.startsWith("/gallery") ||
     pathname.startsWith("/s/") ||
     pathname === "/login" ||
@@ -33,7 +36,8 @@ export function AppProvider({ children }) {
 
   const loadOrgs = useCallback(async () => {
     try {
-      setOrgs(await api("/organisations"));
+      const data = await api("/organisations");
+      setOrgs(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     }
@@ -51,17 +55,21 @@ export function AppProvider({ children }) {
           if (userProfile.org_id) {
             setOrgId(userProfile.org_id);
             setOrg(userProfile.org_id);
+            setOrgs([{ id: userProfile.org_id, name: userProfile.org_name || "Company Workspace" }]);
           }
           if (userProfile.role) {
             setRole(userProfile.role);
             setRoleState(userProfile.role);
           }
         } catch {
-          // Token expired or invalid
+          // Token expired or invalid - wipe all session data
           localStorage.removeItem("caraxes_auth_token");
           localStorage.removeItem("caraxes_user");
+          localStorage.removeItem("caraxes_org_id");
+          localStorage.removeItem("caraxes_role");
           setToken("");
           setCurrentUser(null);
+          setOrgs([]);
         }
       }
       setLoadingAuth(false);
@@ -74,6 +82,8 @@ export function AppProvider({ children }) {
   }, [isPublicRoute, loadOrgs]);
 
   const chooseOrg = (id) => {
+    // A logged-in user cannot switch away from their company's workspace
+    if (currentUser?.org_id && id !== currentUser.org_id) return;
     setOrgId(id);
     setOrg(id);
   };
@@ -102,6 +112,7 @@ export function AppProvider({ children }) {
     if (res.user.org_id) {
       setOrgId(res.user.org_id);
       setOrg(res.user.org_id);
+      setOrgs([{ id: res.user.org_id, name: res.user.org_name || "Company Workspace" }]);
     }
     if (res.user.role) {
       setRole(res.user.role);
@@ -124,6 +135,7 @@ export function AppProvider({ children }) {
     if (res.user.org_id) {
       setOrgId(res.user.org_id);
       setOrg(res.user.org_id);
+      setOrgs([{ id: res.user.org_id, name: res.user.org_name || "Company Workspace" }]);
     }
     if (res.user.role) {
       setRole(res.user.role);
@@ -154,6 +166,7 @@ export function AppProvider({ children }) {
     if (res.user.org_id) {
       setOrgId(res.user.org_id);
       setOrg(res.user.org_id);
+      setOrgs([{ id: res.user.org_id, name: res.user.org_name || "Company Workspace" }]);
     }
     if (res.user.role) {
       setRole(res.user.role);
@@ -166,8 +179,11 @@ export function AppProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("caraxes_auth_token");
     localStorage.removeItem("caraxes_user");
+    localStorage.removeItem("caraxes_org_id");
+    localStorage.removeItem("caraxes_role");
     setToken("");
     setCurrentUser(null);
+    setOrgs([]);
     navigate("/login");
   };
 

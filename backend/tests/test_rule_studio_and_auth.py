@@ -191,6 +191,55 @@ def test_supabase_jwt_auth_resolution(client, mock_supabase):
     assert res.status_code == 200
 
 
+def test_cross_tenant_access_rejected_403(client, mock_supabase):
+    user_org_id = str(uuid.uuid4())
+    other_org_id = str(uuid.uuid4())
+    jwt_user_id = str(uuid.uuid4())
+
+    mock_user = MagicMock()
+    mock_user.id = jwt_user_id
+    mock_user.email = "user@tenant-a.com"
+    mock_supabase.auth.get_user.return_value.user = mock_user
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"org_id": user_org_id, "role": "admin", "full_name": "Tenant A Admin"}
+    ]
+
+    # Attempt to access with a mismatched X-Org-Id (tenant B)
+    res = client.get(
+        "/organisations",
+        headers={
+            "Authorization": "Bearer valid-token-a",
+            "X-Org-Id": other_org_id,
+        },
+    )
+    assert res.status_code == 403
+    assert "Forbidden: You do not have access to this workspace" in res.json()["detail"]
+
+
+def test_get_other_organisation_forbidden_403(client, mock_supabase):
+    user_org_id = str(uuid.uuid4())
+    other_org_id = str(uuid.uuid4())
+    jwt_user_id = str(uuid.uuid4())
+
+    mock_user = MagicMock()
+    mock_user.id = jwt_user_id
+    mock_user.email = "user@tenant-a.com"
+    mock_supabase.auth.get_user.return_value.user = mock_user
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"org_id": user_org_id, "role": "admin", "full_name": "Tenant A Admin"}
+    ]
+
+    # Attempt to fetch details of a different company's workspace directly by org_id
+    res = client.get(
+        f"/organisations/{other_org_id}",
+        headers={"Authorization": "Bearer valid-token-a"},
+    )
+    assert res.status_code == 403
+    assert "Forbidden: You do not have access to this workspace" in res.json()["detail"]
+
+
 def test_analytics_metrics(client, mock_supabase):
     org_id = str(uuid.uuid4())
     rule_id = str(uuid.uuid4())

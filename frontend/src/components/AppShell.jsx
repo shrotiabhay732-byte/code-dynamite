@@ -34,13 +34,10 @@ function titleFor(pathname) {
 }
 
 export default function AppShell({ children }) {
-  const { orgs, orgId, error, chooseOrg, createOrg, currentUser, logout, isAuthenticated } = useApp();
+  const { orgs, orgId, error, currentUser, logout, isAuthenticated } = useApp();
   const { pathname } = useLocation();
   const [stats, setStats] = useState(null);
   const [engine, setEngine] = useState("checking");
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [orgError, setOrgError] = useState("");
 
   useEffect(() => {
     fetch(publicUrl("/health"))
@@ -54,20 +51,7 @@ export default function AppShell({ children }) {
     api("/dashboard/stats").then(setStats).catch(() => {});
   }, [orgId, pathname]);
 
-  async function addOrg(e) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setOrgError("");
-    try {
-      await createOrg(newName.trim());
-      setNewName("");
-      setAdding(false);
-    } catch (err) {
-      setOrgError(err.message);
-    }
-  }
-
-  const orgName = orgs.find((o) => o.id === orgId)?.name ?? "No workspace";
+  const orgName = currentUser?.org_name || orgs.find((o) => o.id === orgId)?.name || "Company Workspace";
   const queueCount = stats?.submissions?.in_review ?? 0;
   const loop = LOOP;
 
@@ -88,40 +72,17 @@ export default function AppShell({ children }) {
         <div className="mt-2 rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-xs font-bold text-slate-800">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="truncate">{orgName}</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate max-w-[130px]">{orgName}</span>
             </span>
             <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[9px] font-bold text-[#FF5533]">
               {import.meta.env.PROD ? "PROD" : "LIVE"}
             </span>
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">{stats?.knowledge?.approved ?? 0} active rules</div>
-          <select
-            value={orgId}
-            onChange={(e) => chooseOrg(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800 focus:border-[#FF5533] focus:outline-none"
-          >
-            <option value="">Select workspace…</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
-          {adding ? (
-            <form onSubmit={addOrg} className="mt-2 flex gap-1">
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Workspace name"
-                className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900"
-              />
-              <button className="rounded-md bg-[#FF5533] px-2 text-xs font-bold text-white">Add</button>
-            </form>
-          ) : (
-            <button onClick={() => setAdding(true)} className="mt-2 text-[11px] font-semibold text-[#FF5533] hover:underline">
-              + New workspace
-            </button>
-          )}
+          <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+            <span>{stats?.knowledge?.approved ?? 0} active rules</span>
+            <span className="capitalize font-semibold text-slate-700">{currentUser?.role || "Admin"}</span>
+          </div>
         </div>
 
         <nav className="mt-6 space-y-1">
@@ -257,7 +218,7 @@ export default function AppShell({ children }) {
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-          {(error || orgError) && <p className="mb-3 text-sm text-red-600">{error || orgError}</p>}
+          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
           {!orgId ? (
             <div className="rounded-xl border border-dashed border-slate-300 p-12 text-center text-sm text-slate-500">
               Select or create a workspace to begin.
