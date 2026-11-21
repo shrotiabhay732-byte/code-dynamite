@@ -30,15 +30,26 @@ async def demo_passcode(request: Request, call_next):
     return await call_next(request)
 
 
-# FRONTEND_ORIGIN may hold several addresses separated by commas
-origins = [o.strip().rstrip("/") for o in settings.frontend_origin.split(",") if o.strip()]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# FRONTEND_ORIGIN may hold several addresses separated by commas (e.g. "https://caraxes.vercel.app,http://localhost:5173")
+# or "*" for open access without crashing with allow_credentials=True
+raw_origin = settings.frontend_origin.strip()
+if raw_origin == "*":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    origins = [o.strip().rstrip("/") for o in raw_origin.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 admin_only = [Depends(require_role("admin"))]
 
